@@ -1,2 +1,0 @@
-# Canteen
-Idk

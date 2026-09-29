@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>БІЛ — Система учёта обеда</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0E1826;
+    --bg-deep: #0A121D;
+    --panel: #16233A;
+    --panel-2: #1D2E4A;
+    --panel-3: #24385A;
+    --stroke: rgba(232,240,255,0.09);
+    --stroke-strong: rgba(232,240,255,0.16);
+    --accent: #E7A23C;
+    --accent-dim: #A9793A;
+    --good: #4FAE81;
+    --bad: #DD6459;
+    --text: #EAF0FB;
+    --text-muted: #8FA1C4;
+    --text-faint: #5E729A;
+    --radius: 14px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  #app{
+    background: radial-gradient(1200px 700px at 15% -10%, #142544 0%, var(--bg) 55%), var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+    padding-bottom: 60px;
+  }
+  h1,h2,h3,.display{
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .nums{
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  .topbar{
+    display:flex; align-items:center; gap:14px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--stroke);
+    background: rgba(10,18,29,0.55);
+    position: sticky; top:0; z-index: 20;
+    backdrop-filter: blur(6px);
+  }
+  .badge{
+    width:44px; height:44px; border-radius: 11px;
+    background: #FFFFFF;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+    padding: 5px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+  }
+  .badge img{ width:100%; height:100%; object-fit:contain; }
+  .topbar .tt{ line-height:1.15; }
+  .topbar .tt .k1{ font-size:15px; font-weight:600; color:var(--text);}
+  .topbar .tt .k2{ font-size:12.5px; color:var(--text-muted); }
+  .topbar .back{
+    margin-left:auto;
+    cursor:pointer; user-select:none;
+    color: var(--text-muted);
+    font-size:14px;
+    padding:8px 14px;
+    border:1px solid var(--stroke);
+    border-radius: 999px;
+    transition: all .15s ease;
+  }
+  .topbar .back:hover{ color:var(--text); border-color: var(--stroke-strong); background: var(--panel);}
+  .wrap{ max-width: 880px; margin: 0 auto; padding: 36px 22px 10px; }
+  .wrap.wide{ max-width: 1040px; }
+
+  /* HOME */
+  .home-hero{ text-align:center; padding: 54px 20px 10px; }
+  .home-hero .badge{ width:86px; height:86px; border-radius:18px; margin: 0 auto 22px; padding:6px; }
+  .home-hero h1{ font-size: 30px; margin: 0 0 8px; }
+  .home-hero p{ color: var(--text-muted); margin:0; font-size:14.5px; }
+  .home-grid{
+    display:grid; grid-template-columns: 1fr; gap:14px;
+    max-width: 460px; margin: 36px auto 0; padding: 0 20px;
+  }
+  @media(min-width:640px){ .home-grid{ max-width: 620px; } }
+  .home-btn{
+    display:flex; align-items:center; gap:16px;
+    background: linear-gradient(155deg, var(--panel-2), var(--panel));
+    border:1px solid var(--stroke);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    cursor:pointer;
+    transition: transform .15s ease, border-color .15s ease, background .15s ease;
+    text-align:left;
+  }
+  .home-btn:hover{ transform: translateY(-2px); border-color: var(--stroke-strong); background: linear-gradient(155deg, var(--panel-3), var(--panel-2)); }
+  .home-btn .ico{
+    width:46px; height:46px; border-radius:12px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:20px;
+    background: rgba(231,162,60,0.12); border:1px solid rgba(231,162,60,0.25);
+  }
+  .home-btn .hb-t{ font-size:16.5px; font-weight:600; }
+  .home-btn .hb-s{ font-size:13px; color:var(--text-muted); margin-top:2px; }
+
+  /* CARDS / PANELS */
+  .panel{
+    background: var(--panel);
+    border: 1px solid var(--stroke);
+    border-radius: var(--radius);
+    padding: 22px;
+    margin-bottom: 16px;
+  }
+  .today-strip{
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
+    padding: 16px 20px; margin-bottom: 22px;
+    background: var(--panel-2);
+    border:1px solid var(--stroke);
+    border-radius: var(--radius);
+  }
+  .today-strip .day{ font-size:16px; font-weight:600; }
+  .today-strip .teach{ font-size:13.5px; color: var(--text-muted); }
+  .today-strip .teach b{ color: var(--text); font-weight:600; }
+
+  /* QUEUE TICKETS */
+  .queue-list{ display:flex; flex-direction:column; gap:10px; }
+  .ticket{
+    display:flex; align-items:center; gap:16px;
+    background: var(--panel-2);
+    border:1px solid var(--stroke);
+    border-left: 3px solid var(--accent-dim);
+    border-radius: 10px;
+    padding: 14px 18px;
+    cursor:pointer;
+    transition: background .15s ease, border-color .15s ease;
+  }
+  .ticket:hover{ background: var(--panel-3); border-left-color: var(--accent); }
+  .ticket .num{
+    font-size:20px; font-weight:700; color: var(--accent);
+    width:30px; text-align:center; flex-shrink:0;
+  }
+  .ticket .cls{ font-weight:600; font-size:16px; flex:1; }
+  .ticket .time{ font-size:14.5px; color: var(--text-muted); }
+  .ticket .stat{ font-size:12px; padding:3px 9px; border-radius:999px; }
+  .ticket .stat.done{ background: rgba(79,174,129,0.15); color: var(--good); }
+  .ticket .stat.pending{ background: rgba(143,161,196,0.12); color: var(--text-faint); }
+
+  /* STUDENT LIST */
+  .stu-list{ display:flex; flex-direction:column; gap:2px; }
+  .stu-row{
+    display:flex; align-items:center; gap:12px;
+    padding: 11px 6px;
+    border-bottom: 1px solid var(--stroke);
+    cursor:pointer;
+    user-select:none;
+  }
+  .stu-row:last-child{ border-bottom:none; }
+  .chk{
+    width:21px; height:21px; border-radius:6px;
+    border: 1.5px solid var(--stroke-strong);
+    flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    transition: all .12s ease;
+  }
+  .chk.on{ background: var(--good); border-color: var(--good); }
+  .chk.on::after{ content:'✓'; color:#08281B; font-size:13px; font-weight:700; }
+  .stu-name{ font-size:15px; }
+  .stu-name.off{ color: var(--text-muted); }
+
+  /* BUTTONS */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    padding: 12px 22px;
+    border-radius: 10px;
+    border: none;
+    font-family:'IBM Plex Sans',sans-serif;
+    font-size:14.5px; font-weight:600;
+    cursor:pointer;
+    transition: filter .15s ease, transform .1s ease;
+  }
+  .btn:active{ transform: scale(0.98); }
+  .btn-accent{ background: var(--accent); color:#1B1204; }
+  .btn-accent:hover{ filter: brightness(1.08); }
+  .btn-ghost{ background: var(--panel-2); color: var(--text); border:1px solid var(--stroke); }
+  .btn-ghost:hover{ background: var(--panel-3); }
+  .btn-danger{ background: rgba(221,100,89,0.15); color: var(--bad); border:1px solid rgba(221,100,89,0.3); }
+  .btn-danger:hover{ background: rgba(221,100,89,0.25); }
+  .btn-block{ width:100%; }
+  .btn-sm{ padding:8px 14px; font-size:13px; }
+
+  /* FORMS */
+  .field{ margin-bottom: 14px; }
+  .field label{ display:block; font-size:12.5px; color: var(--text-muted); margin-bottom:6px; }
+  .field input, .field select{
+    width:100%; padding: 11px 13px;
+    background: var(--panel-2);
+    border: 1px solid var(--stroke);
+    border-radius: 9px;
+    color: var(--text);
+    font-family:'IBM Plex Sans',sans-serif;
+    font-size:14.5px;
+  }
+  .field input:focus, .field select:focus{ outline:none; border-color: var(--accent-dim); }
+  .row-inline{ display:flex; gap:10px; align-items:flex-end; }
+  .row-inline .field{ flex:1; margin-bottom:0; }
+
+  /* GATE */
+  .gate{
+    max-width: 340px; margin: 60px auto; text-align:center;
+  }
+  .gate .lockicon{ font-size:30px; margin-bottom:14px; }
+  .gate h3{ margin:0 0 18px; font-size:18px; }
+  .gate-err{ color: var(--bad); font-size:13px; margin-top:8px; min-height:16px; }
+
+  /* CLASS PICKER */
+  .pill-grid{ display:flex; flex-wrap:wrap; gap:10px; }
+  .pill{
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    border:1px solid var(--stroke);
+    cursor:pointer;
+    font-size:14.5px; font-weight:600;
+    transition: all .15s ease;
+  }
+  .pill:hover{ border-color: var(--accent-dim); }
+  .pill.active{ background: var(--accent); color:#1B1204; border-color: var(--accent); }
+
+  /* ATTENDANCE VIEW */
+  .att-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 12px 4px; border-bottom: 1px solid var(--stroke);
+  }
+  .att-row:last-child{ border-bottom:none; }
+  .att-mark{ font-size:16px; }
+  .att-mark.yes{ color: var(--good); }
+  .att-mark.no{ color: var(--bad); }
+  .summary-bar{
+    display:flex; gap:18px; margin-bottom:18px; flex-wrap:wrap;
+  }
+  .sum-chip{
+    padding:10px 16px; border-radius:10px; background: var(--panel-2); border:1px solid var(--stroke);
+    font-size:13.5px;
+  }
+  .sum-chip b{ font-size:16px; margin-right:6px; }
+
+  /* TABS */
+  .tabs{ display:flex; gap:8px; margin-bottom:20px; border-bottom: 1px solid var(--stroke); }
+  .tab{
+    padding: 10px 4px; margin-right:18px;
+    color: var(--text-muted); font-size:14.5px; font-weight:600;
+    cursor:pointer; border-bottom: 2px solid transparent;
+  }
+  .tab.active{ color: var(--text); border-bottom-color: var(--accent); }
+
+  .empty{ color: var(--text-faint); font-size:14px; padding: 20px 4px; text-align:center; }
+  .muted{ color: var(--text-muted); font-size:13px; }
+  .list-item{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 12px 4px; border-bottom:1px solid var(--stroke);
+  }
+  .list-item:last-child{ border-bottom:none; }
+  .list-item .li-name{ font-size:14.5px; }
+  .list-item .li-sub{ font-size:12.5px; color: var(--text-muted); }
+  .iconbtn{
+    background:none; border:none; color: var(--text-faint); cursor:pointer; font-size:15px; padding:4px 8px;
+  }
+  .iconbtn:hover{ color: var(--bad); }
+  .toast{
+    position: fixed; bottom: 24px; left:50%; transform: translateX(-50%);
+    background: var(--panel-3); border:1px solid var(--stroke-strong);
+    padding: 12px 22px; border-radius: 999px; font-size:14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    z-index: 50; opacity:0; pointer-events:none; transition: opacity .2s ease, transform .2s ease;
+  }
+  .toast.show{ opacity:1; transform: translateX(-50%) translateY(-4px); }
+  .loading{ text-align:center; color:var(--text-faint); padding: 40px 0; font-size:14px; }
+
+  /* MEAL TABLE */
+  .table-scroll{ overflow-x:auto; }
+  .meal-table{ width:100%; border-collapse:collapse; font-size:14px; min-width:520px; }
+  .meal-table th{ text-align:center; font-weight:600; color:var(--text-muted); font-size:12px; padding:10px 8px; border-bottom:1px solid var(--stroke-strong); white-space:nowrap; }
+  .meal-table th:first-child, .meal-table td:first-child{ text-align:left; }
+  .meal-table td{ padding:10px 8px; border-bottom:1px solid var(--stroke); text-align:center; font-size:14px; }
+  .meal-table .price-sub{ display:block; font-weight:400; color:var(--text-faint); font-size:10.5px; margin-top:2px; }
+  .meal-table .iin-cell{ color:var(--text-muted); font-size:12.5px; font-variant-numeric:tabular-nums; }
+  .chk-cell{ display:flex; justify-content:center; }
+  .chk.disabled{ opacity:0.3; cursor:default; }
+  .legend-note{ font-size:12.5px; color:var(--text-faint); margin-top:10px; }
+
+  /* IIN */
+  .iin-input{ letter-spacing: 0.5px; }
+
+  /* DEBT / PAYMENTS */
+  .kpi-row{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+  .kpi-card{ flex:1; min-width:140px; background: var(--panel-2); border:1px solid var(--stroke); border-radius: var(--radius); padding:16px 18px; }
+  .kpi-card .kv{ font-size:20px; font-weight:700; }
+  .kpi-card .kv.pos{ color: var(--bad); }
+  .kpi-card .kv.zero{ color: var(--good); }
+  .kpi-card .kl{ font-size:12px; color: var(--text-muted); margin-top:4px; }
+  .month-table{ width:100%; border-collapse:collapse; font-size:14px; }
+  .month-table th{ text-align:left; color:var(--text-muted); font-size:12px; padding:8px; border-bottom:1px solid var(--stroke-strong); }
+  .month-table td{ padding:9px 8px; border-bottom:1px solid var(--stroke); }
+  .month-table td.num, .month-table th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .pay-input{ width:100px; padding:7px 9px; background: var(--panel-3); border:1px solid var(--stroke); border-radius:7px; color:var(--text); font-size:13px; }
+  .subtabs{ display:flex; gap:10px; margin-bottom:18px; }
+  .subtab-btn{ padding:8px 16px; border-radius:999px; background:var(--panel-2); border:1px solid var(--stroke); font-size:13.5px; cursor:pointer; color:var(--text-muted); }
+  .subtab-btn.active{ background: var(--accent); color:#1B1204; border-color: var(--accent); font-weight:600; }
+  .pass-link{ font-size:12.5px; color: var(--text-muted); cursor:pointer; text-decoration: underline; text-underline-offset:3px; }
+  .pass-link:hover{ color: var(--accent); }
+  .inline-form{ margin-top:12px; padding-top:12px; border-top:1px dashed var(--stroke); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------------- constants ---------------- */
+const LOGO_SRC = "data:image/png;base64,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";
+const PASS_DEFAULT = "15122010";
+const RU_WEEKDAYS = ["воскресенье","понедельник","вторник","среда","четверг","пятница","суббота"];
+const RU_MONTHS = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+const DEFAULT_CLASSES = ["9А","9Б","10А","10Б","11А","11Б"];
+const EPOCH = new Date(Date.UTC(2026,0,1));
+
+let state = {
+  view: "home",
+  unlockedAcc: false,
+  unlockedMgmt: false,
+  config: null,
+  students: null,
+  scheduleDate: todayStr(),
+  openClass: null,
+  draft: {},
+  mgmtTab: "students",
+  accSelClass: null,
+  accSubTab: "attendance",
+  accMonth: monthStr(),
+  showPassFormAcc: false,
+  showPassFormMgmt: false,
+  dutyUnlocked: false,
+  dutyError: "",
+  debtResult: null,
+  debtError: "",
+};
+
+/* ---------------- helpers ---------------- */
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function monthStr(offset){
+  const d = new Date();
+  if(offset) d.setMonth(d.getMonth()+offset);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+}
+function monthHuman(m){
+  const [y,mo] = m.split("-").map(Number);
+  return `${RU_MONTHS[mo-1]} ${y}`;
+}
+function fmtMoney(n){
+  return (n||0).toLocaleString("ru-RU") + " ₸";
+}
+function dailyCost(st, prices){
+  if(!st) return 0;
+  return (st.b?prices.breakfast:0) + (st.l?prices.lunch:0) + (st.d?prices.dinner:0) + (st.p1?prices.snack1:0) + (st.p2?prices.snack2:0);
+}
+function fmtDateHuman(dateStr){
+  const [y,m,d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m-1, d);
+  return `${dt.getDate()} ${RU_MONTHS[dt.getMonth()]} ${dt.getFullYear()}`;
+}
+function weekdayOf(dateStr){
+  const [y,m,d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m-1, d);
+  return RU_WEEKDAYS[dt.getDay()];
+}
+function dayIndexOf(dateStr){
+  const [y,m,d] = dateStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m-1, d));
+  return Math.floor((dt - EPOCH) / 86400000);
+}
+function addMinutes(hhmm, mins){
+  let [h,m] = hhmm.split(":").map(Number);
+  m += mins;
+  h += Math.floor(m/60);
+  m = m % 60;
+  return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(showToast._h);
+  showToast._h = setTimeout(()=>t.classList.remove("show"), 2200);
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+/* ---------------- storage ---------------- */
+async function loadConfig(){
+  try{
+    const r = await window.storage.get("bil:config", true);
+    state.config = r ? JSON.parse(r.value) : { classes: DEFAULT_CLASSES.slice(), teachers: [], password: PASS_DEFAULT, prices: { breakfast: 300, lunch: 700, dinner: 300, snack1: 200, snack2: 200 } };
+  }catch(e){
+    state.config = { classes: DEFAULT_CLASSES.slice(), teachers: [], password: PASS_DEFAULT, prices: { breakfast: 300, lunch: 700, dinner: 300, snack1: 200, snack2: 200 } };
+  }
+  if(!state.config.password) state.config.password = PASS_DEFAULT;
+  if(!state.config.prices) state.config.prices = { breakfast: 300, lunch: 700, dinner: 300, snack1: 200, snack2: 200 };
+  if(state.config.prices.snack1 === undefined) state.config.prices.snack1 = 200;
+  if(state.config.prices.snack2 === undefined) state.config.prices.snack2 = 200;
+}
+async function saveConfig(){
+  await window.storage.set("bil:config", JSON.stringify(state.config), true);
+}
+async function loadStudents(){
+  try{
+    const r = await window.storage.get("bil:students", true);
+    state.students = r ? JSON.parse(r.value) : {};
+  }catch(e){
+    state.students = {};
+  }
+  // ensure every class has an array
+  state.config.classes.forEach(c => { if(!state.students[c]) state.students[c] = []; });
+}
+async function saveStudents(){
+  await window.storage.set("bil:students", JSON.stringify(state.students), true);
+}
+async function loadSchedule(dateStr){
+  try{
+    const r = await window.storage.get("bil:schedule:"+dateStr, true);
+    if(r) return JSON.parse(r.value);
+  }catch(e){}
+  return buildSchedule(dateStr);
+}
+function buildSchedule(dateStr){
+  const classes = state.config.classes;
+  const di = dayIndexOf(dateStr);
+  const rot = classes.length ? di % classes.length : 0;
+  const order = classes.slice(rot).concat(classes.slice(0, rot));
+  const times = order.map((c,i) => addMinutes("13:10", i*5));
+  const teachers = state.config.teachers;
+  const teacherObj = teachers.length ? teachers[((di % teachers.length)+teachers.length)%teachers.length] : null;
+  return { order, times, teacher: teacherObj ? teacherObj.name : "Не назначен", teacherObj };
+}
+async function loadAttendance(dateStr){
+  try{
+    const r = await window.storage.get("bil:attendance:"+dateStr, true);
+    return r ? JSON.parse(r.value) : {};
+  }catch(e){
+    return {};
+  }
+}
+async function saveAttendanceForClass(dateStr, className, map){
+  const all = await loadAttendance(dateStr);
+  all[className] = map;
+  await window.storage.set("bil:attendance:"+dateStr, JSON.stringify(all), true);
+}
+async function loadPayments(){
+  try{
+    const r = await window.storage.get("bil:payments", true);
+    return r ? JSON.parse(r.value) : {};
+  }catch(e){
+    return {};
+  }
+}
+async function savePayments(obj){
+  await window.storage.set("bil:payments", JSON.stringify(obj), true);
+}
+async function listAttendanceKeys(monthPrefix){
+  const prefix = "bil:attendance:" + (monthPrefix || "");
+  try{
+    const r = await window.storage.list(prefix, true);
+    return (r && r.keys) ? r.keys : [];
+  }catch(e){
+    return [];
+  }
+}
+async function getAttendanceByKey(key){
+  try{
+    const r = await window.storage.get(key, true);
+    return r ? JSON.parse(r.value) : null;
+  }catch(e){
+    return null;
+  }
+}
+
+/* ---------------- render root ---------------- */
+async function boot(){
+  render(`<div class="loading">Загрузка…</div>`);
+  await loadConfig();
+  await loadStudents();
+  render_();
+}
+
+function render(html){
+  document.getElementById("app").innerHTML = html;
+}
+
+function topbar(title, subtitle, showBack){
+  return `
+  <div class="topbar">
+    <div class="badge"><img src="${LOGO_SRC}" alt="БІЛ"></div>
+    <div class="tt"><div class="k1">${title}</div><div class="k2">${subtitle}</div></div>
+    ${showBack ? `<div class="back" onclick="goHome()">← На главную</div>` : ""}
+  </div>`;
+}
+
+function goHome(){
+  state.view = "home"; state.openClass = null; state.draft = {};
+  state.unlockedAcc = false; state.unlockedMgmt = false; state.dutyUnlocked = false;
+  state.showPassFormAcc = false; state.showPassFormMgmt = false;
+  render_();
+}
+
+/* ---------------- HOME ---------------- */
+function renderHome(){
+  render(`
+    <div id="app">
+    <div class="home-hero">
+      <div class="badge"><img src="${LOGO_SRC}" alt="БІЛ"></div>
+      <h1>Система учёта обеда</h1>
+      <p>Расписание, посещаемость и управление школьной столовой</p>
+    </div>
+    <div class="home-grid">
+      <div class="home-btn" onclick="openSchedule()">
+        <div class="ico">📅</div>
+        <div><div class="hb-t">Расписание на сегодня</div><div class="hb-s">Очередь классов и отметка присутствия</div></div>
+      </div>
+      <div class="home-btn" onclick="openAccounting()">
+        <div class="ico">📊</div>
+        <div><div class="hb-t">Бухгалтерия</div><div class="hb-s">Посещаемость по классам и датам</div></div>
+      </div>
+      <div class="home-btn" onclick="openManagement()">
+        <div class="ico">⚙️</div>
+        <div><div class="hb-t">Управление</div><div class="hb-s">Ученики, учителя, классы</div></div>
+      </div>
+      <div class="home-btn" onclick="openDebt()">
+        <div class="ico">💳</div>
+        <div><div class="hb-t">Долг</div><div class="hb-s">Проверить задолженность по ИИН</div></div>
+      </div>
+    </div>
+    </div>
+  `);
+}
+
+/* ---------------- SCHEDULE ---------------- */
+async function openSchedule(){
+  state.view = "schedule"; state.openClass = null;
+  render_();
+}
+async function renderSchedule(){
+  render(topbar("Расписание", fmtDateHuman(state.scheduleDate), true) + `<div class="wrap"><div class="loading">Загрузка расписания…</div></div>`);
+  const sched = await loadSchedule(state.scheduleDate);
+  const attendance = await loadAttendance(state.scheduleDate);
+  const hasDuty = !!sched.teacherObj;
+  const locked = hasDuty && !state.dutyUnlocked;
+  const rows = sched.order.map((cls,i) => {
+    const done = attendance[cls] !== undefined;
+    return `
+    <div class="ticket" onclick="onTicketClick('${cls}')">
+      <div class="num nums">${i+1}</div>
+      <div class="cls">${cls}${locked ? ' 🔒' : ''}</div>
+      <div class="time nums">${sched.times[i]}</div>
+      <div class="stat ${done ? 'done':'pending'}">${done ? 'Отмечено' : 'Ожидает'}</div>
+    </div>`;
+  }).join("");
+
+  const dutyBox = hasDuty ? (
+    state.dutyUnlocked
+      ? `<div class="sum-chip" style="margin-top:10px;">🔓 Вы вошли как дежурный: <b>${escapeHtml(sched.teacher)}</b></div>`
+      : `
+      <div class="inline-form" style="margin-top:14px;border-top:none;padding-top:0;">
+        <div class="row-inline">
+          <div class="field"><label>Пароль дежурного (ИИН)</label><input type="password" id="dutyIinInput" class="iin-input" placeholder="12 цифр" maxlength="12" inputmode="numeric"></div>
+          <button class="btn btn-accent" onclick="checkDutyLogin()">Вход дежурного</button>
+        </div>
+        <div class="gate-err" id="dutyErr">${state.dutyError||""}</div>
+      </div>`
+  ) : `<div class="legend-note" style="margin-top:10px;">Дежурный учитель не назначен — отметка доступна без входа.</div>`;
+
+  render(topbar("Расписание", fmtDateHuman(state.scheduleDate), true) + `
+    <div class="wrap">
+      <div class="today-strip" style="flex-direction:column;align-items:stretch;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+          <div class="day">Сегодня — ${cap(weekdayOf(state.scheduleDate))}, ${fmtDateHuman(state.scheduleDate)}</div>
+          <div class="teach">👨‍🏫 Ответственный учитель: <b>${escapeHtml(sched.teacher)}</b></div>
+        </div>
+        ${dutyBox}
+      </div>
+      <div class="queue-list">${rows || '<div class="empty">Классы не настроены — добавьте их в разделе «Управление»</div>'}</div>
+    </div>
+  `);
+  const dutyInput = document.getElementById("dutyIinInput");
+  if(dutyInput){
+    dutyInput.addEventListener("keydown", e => { if(e.key==="Enter") checkDutyLogin(); });
+  }
+}
+function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+async function checkDutyLogin(){
+  const v = document.getElementById("dutyIinInput").value.trim();
+  const sched = await loadSchedule(state.scheduleDate);
+  if(sched.teacherObj && sched.teacherObj.iin === v && v !== ""){
+    state.dutyUnlocked = true;
+    state.dutyError = "";
+    showToast("Вход выполнен: " + sched.teacherObj.name);
+    render_();
+  }else{
+    state.dutyError = "Неверный ИИН дежурного учителя";
+    document.getElementById("dutyErr").textContent = state.dutyError;
+  }
+}
+function onTicketClick(cls){
+  if(state.dutyUnlocked || !state.config.teachers.length){
+    openClassChecklist(cls);
+  }else{
+    showToast("Сначала выполните вход дежурного учителя");
+  }
+}
+
+async function openClassChecklist(cls){
+  state.openClass = cls;
+  render_();
+}
+async function renderChecklist(){
+  const cls = state.openClass;
+  render(topbar(cls, "Отметка присутствия на обеде", true) + `<div class="wrap"><div class="loading">Загрузка списка…</div></div>`);
+  const students = state.students[cls] || [];
+  const attendance = await loadAttendance(state.scheduleDate);
+  const existing = attendance[cls];
+  state.draft = {};
+  students.forEach(s => {
+    const ex = existing && existing[s.id];
+    state.draft[s.id] = ex ? { b: !!ex.b, l: !!ex.l, d: !!ex.d, p1: !!ex.p1, p2: !!ex.p2 } : { b:false, l:false, d:false, p1:false, p2:false };
+  });
+
+  renderChecklistBody();
+}
+function renderChecklistBody(){
+  const cls = state.openClass;
+  const students = state.students[cls] || [];
+  const p = state.config.prices;
+  const rowsHtml = students.length ? students.map(s => {
+    const st = state.draft[s.id];
+    return `
+    <tr>
+      <td>${escapeHtml(s.name)}</td>
+      <td class="iin-cell">${escapeHtml(s.iin || "—")}</td>
+      <td><div class="chk-cell"><div class="chk disabled ${st.b?'on':''}"></div></div></td>
+      <td><div class="chk-cell"><div class="chk ${st.l?'on':''}" onclick="toggleLunch('${s.id}')"></div></div></td>
+      <td><div class="chk-cell"><div class="chk disabled ${st.d?'on':''}"></div></div></td>
+      <td><div class="chk-cell"><div class="chk disabled ${st.p1?'on':''}"></div></div></td>
+      <td><div class="chk-cell"><div class="chk disabled ${st.p2?'on':''}"></div></div></td>
+    </tr>`;
+  }).join("") : "";
+
+  const tableHtml = students.length ? `
+    <div class="table-scroll">
+      <table class="meal-table">
+        <thead>
+          <tr>
+            <th>Ученик</th>
+            <th>ИИН</th>
+            <th>Завтрак<span class="price-sub">${fmtMoney(p.breakfast)}</span></th>
+            <th>Обед<span class="price-sub">${fmtMoney(p.lunch)}</span></th>
+            <th>Ужин<span class="price-sub">${fmtMoney(p.dinner)}</span></th>
+            <th>Полдник 1<span class="price-sub">${fmtMoney(p.snack1)}</span></th>
+            <th>Полдник 2<span class="price-sub">${fmtMoney(p.snack2)}</span></th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+    <div class="legend-note">Дежурный учитель отмечает только «Обед». Остальные приёмы пищи отмечаются в бухгалтерии.</div>
+  ` : `<div class="empty">В классе ${cls} пока нет учеников. Добавьте их в разделе «Управление».</div>`;
+
+  render(topbar(cls, `Отметка присутствия · ${fmtDateHuman(state.scheduleDate)}`, true) + `
+    <div class="wrap">
+      <div class="panel">
+        ${tableHtml}
+      </div>
+      ${students.length ? `<button class="btn btn-accent btn-block" onclick="submitAttendance()">Отправить данные</button>` : ""}
+      <div style="height:14px"></div>
+      <button class="btn btn-ghost btn-block" onclick="backToSchedule()">Назад к расписанию</button>
+    </div>
+  `);
+}
+function toggleLunch(id){
+  state.draft[id].l = !state.draft[id].l;
+  renderChecklistBody();
+}
+function backToSchedule(){
+  state.openClass = null; render_();
+}
+async function submitAttendance(){
+  await saveAttendanceForClass(state.scheduleDate, state.openClass, state.draft);
+  showToast("Данные отправлены");
+  state.openClass = null;
+  render_();
+}
+
+/* ---------------- ACCOUNTING ---------------- */
+function openAccounting(){
+  state.view = "accounting";
+  render_();
+}
+function renderAccGate(){
+  render(topbar("Бухгалтерия", "Требуется пароль", true) + `
+    <div class="wrap">
+      <div class="gate panel">
+        <div class="lockicon">🔐</div>
+        <h3>Введите пароль</h3>
+        <div class="field"><input type="password" id="accPass" placeholder="Пароль"></div>
+        <button class="btn btn-accent btn-block" onclick="checkAccPass()">Войти</button>
+        <div class="gate-err" id="accErr"></div>
+      </div>
+    </div>
+  `);
+  document.getElementById("accPass").addEventListener("keydown", e => { if(e.key==="Enter") checkAccPass(); });
+  document.getElementById("accPass").focus();
+}
+function checkAccPass(){
+  const v = document.getElementById("accPass").value;
+  if(v === state.config.password){ state.unlockedAcc = true; render_(); }
+  else document.getElementById("accErr").textContent = "Неверный пароль";
+}
+function renderAcc(){
+  const passFormHtml = state.showPassFormAcc ? `
+    <div class="inline-form">
+      <div class="field"><label>Новый пароль</label><input type="password" id="newPassAcc" placeholder="Новый пароль"></div>
+      <div class="field"><label>Повторите пароль</label><input type="password" id="newPassAcc2" placeholder="Повторите новый пароль"></div>
+      <button class="btn btn-accent btn-sm" onclick="submitChangePassword('acc')">Сохранить пароль</button>
+      <div class="gate-err" id="passErrAcc"></div>
+    </div>` : "";
+  render(topbar("Бухгалтерия", "Посещаемость и оплата", true) + `
+    <div class="wrap wide">
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="subtabs">
+            <div class="subtab-btn ${state.accSubTab==='attendance'?'active':''}" onclick="setAccSubTab('attendance')">Посещаемость</div>
+            <div class="subtab-btn ${state.accSubTab==='debt'?'active':''}" onclick="setAccSubTab('debt')">Долг и оплата</div>
+          </div>
+          <div class="pass-link" onclick="togglePassForm('acc')">🔑 Изменить пароль</div>
+        </div>
+        ${passFormHtml}
+      </div>
+      <div id="accBody"></div>
+    </div>
+  `);
+  renderAccBody();
+}
+function setAccSubTab(t){ state.accSubTab = t; render_(); }
+function togglePassForm(scope){
+  if(scope==='acc') state.showPassFormAcc = !state.showPassFormAcc;
+  else state.showPassFormMgmt = !state.showPassFormMgmt;
+  render_();
+}
+async function submitChangePassword(scope){
+  const p1 = document.getElementById(scope==='acc'?'newPassAcc':'newPassMgmt').value;
+  const p2 = document.getElementById(scope==='acc'?'newPassAcc2':'newPassMgmt2').value;
+  const errEl = document.getElementById(scope==='acc'?'passErrAcc':'passErrMgmt');
+  if(p1.length < 4){ errEl.textContent = "Пароль должен быть не короче 4 символов"; return; }
+  if(p1 !== p2){ errEl.textContent = "Пароли не совпадают"; return; }
+  state.config.password = p1;
+  await saveConfig();
+  showToast("Пароль изменён");
+  if(scope==='acc') state.showPassFormAcc = false; else state.showPassFormMgmt = false;
+  render_();
+}
+function renderAccBody(){
+  const body = document.getElementById("accBody");
+  if(!body) return;
+  if(state.accSubTab === "attendance") renderAccAttendance(body);
+  else renderAccDebt(body);
+}
+
+/* --- attendance subtab --- */
+function renderAccAttendance(body){
+  const cls = state.accSelClass;
+  const pills = state.config.classes.map(c => `<div class="pill ${c===cls?'active':''}" onclick="selectAccClass('${c}')">${c}</div>`).join("");
+  body.innerHTML = `
+    <div class="panel">
+      <div class="field" style="max-width:220px;">
+        <label>Дата</label>
+        <input type="date" id="accDate" value="${state.scheduleDate}" onchange="changeAccDate(this.value)">
+      </div>
+      <div class="pill-grid">${pills || '<div class="empty">Классы не настроены</div>'}</div>
+    </div>
+    <div id="accResult"></div>
+  `;
+  if(cls) renderAccResult();
+}
+function changeAccDate(v){ state.scheduleDate = v; renderAccBody(); }
+function selectAccClass(c){ state.accSelClass = c; renderAccBody(); }
+async function renderAccResult(){
+  const cls = state.accSelClass;
+  const container = document.getElementById("accResult");
+  if(!container) return;
+  container.innerHTML = `<div class="loading">Загрузка…</div>`;
+  const attendance = await loadAttendance(state.scheduleDate);
+  const map = attendance[cls] || null;
+  const students = state.students[cls] || [];
+  const p = state.config.prices;
+  if(!map){
+    container.innerHTML = `<div class="panel"><div class="empty">Данные по классу ${cls} за ${fmtDateHuman(state.scheduleDate)} ещё не отправлены дежурным учителем. Отметки завтрака/ужина/полдников можно проставить и без этого.</div></div>`;
+  }
+  const effMap = map || {};
+  let totalCost = 0;
+  const rows = students.map(s => {
+    const st = effMap[s.id] || { b:false,l:false,d:false,p1:false,p2:false };
+    const cost = dailyCost(st, p);
+    totalCost += cost;
+    return `<tr>
+      <td>${escapeHtml(s.name)}</td>
+      <td class="iin-cell">${escapeHtml(s.iin||"—")}</td>
+      <td><div class="chk-cell"><div class="chk disabled ${st.b?'on':''}" title="Отмечается ниже"></div></div></td>
+      <td><div class="chk-cell"><div class="chk ${st.l?'on':''}" style="opacity:.6;cursor:default;" title="Отмечает дежурный учитель"></div></div></td>
+      <td><div class="chk-cell"><div class="chk disabled ${st.d?'on':''}"></div></div></td>
+      <td><div class="chk-cell"><div class="chk disabled ${st.p1?'on':''}"></div></div></td>
+      <td><div class="chk-cell"><div class="chk disabled ${st.p2?'on':''}"></div></div></td>
+      <td style="text-align:right;font-weight:600;">${fmtMoney(cost)}</td>
+    </tr>`;
+  }).join("");
+  const presentLunch = students.filter(s => (effMap[s.id]||{}).l).length;
+  container.innerHTML += `
+    <div class="summary-bar">
+      <div class="sum-chip"><b>${presentLunch}</b> на обеде</div>
+      <div class="sum-chip"><b>${students.length-presentLunch}</b> без обеда</div>
+      <div class="sum-chip"><b>${fmtMoney(totalCost)}</b> долг за сегодня, всего</div>
+    </div>
+    <div class="panel">
+      <h3 style="margin-top:0;">${cls} — ${fmtDateHuman(state.scheduleDate)}</h3>
+      <div class="table-scroll">
+        <table class="meal-table">
+          <thead><tr><th>Ученик</th><th>ИИН</th><th>Завтрак</th><th>Обед</th><th>Ужин</th><th>Полдник 1</th><th>Полдник 2</th><th>Долг на сегодня</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="8" class="empty">В классе нет учеников</td></tr>'}</tbody>
+        </table>
+      </div>
+      ${students.length ? `<div class="legend-note">Отметьте завтрак, ужин и полдники и нажмите «Сохранить отметки». Обед отмечает только дежурный учитель на странице «Расписание».</div>
+      <div style="height:12px"></div>
+      <button class="btn btn-accent" onclick="editAccMeals('${cls}')">✏️ Отметить завтрак / ужин / полдники</button>` : ""}
+    </div>
+  `;
+}
+function editAccMeals(cls){
+  state.editingMealsClass = cls;
+  renderAccMealsEditor();
+}
+async function renderAccMealsEditor(){
+  const cls = state.accSelClass;
+  const container = document.getElementById("accResult");
+  const attendance = await loadAttendance(state.scheduleDate);
+  const map = attendance[cls] || {};
+  const students = state.students[cls] || [];
+  const p = state.config.prices;
+  const editDraft = {};
+  students.forEach(s => {
+    const st = map[s.id] || {};
+    editDraft[s.id] = { b: !!st.b, l: !!st.l, d: !!st.d, p1: !!st.p1, p2: !!st.p2 };
+  });
+  state._mealEditDraft = editDraft;
+  const rows = students.map(s => {
+    const st = editDraft[s.id];
+    return `<tr>
+      <td>${escapeHtml(s.name)}</td>
+      <td><div class="chk-cell"><div class="chk ${st.b?'on':''}" onclick="toggleAccMealField('${s.id}','b')"></div></div></td>
+      <td><div class="chk-cell"><div class="chk disabled ${st.l?'on':''}"></div></div></td>
+      <td><div class="chk-cell"><div class="chk ${st.d?'on':''}" onclick="toggleAccMealField('${s.id}','d')"></div></div></td>
+      <td><div class="chk-cell"><div class="chk ${st.p1?'on':''}" onclick="toggleAccMealField('${s.id}','p1')"></div></div></td>
+      <td><div class="chk-cell"><div class="chk ${st.p2?'on':''}" onclick="toggleAccMealField('${s.id}','p2')"></div></div></td>
+    </tr>`;
+  }).join("");
+  container.innerHTML = `
+    <div class="panel">
+      <h3 style="margin-top:0;">${cls} — редактирование питания · ${fmtDateHuman(state.scheduleDate)}</h3>
+      <div class="table-scroll">
+        <table class="meal-table">
+          <thead><tr><th>Ученик</th><th>Завтрак<span class="price-sub">${fmtMoney(p.breakfast)}</span></th><th>Обед</th><th>Ужин<span class="price-sub">${fmtMoney(p.dinner)}</span></th><th>Полдник 1<span class="price-sub">${fmtMoney(p.snack1)}</span></th><th>Полдник 2<span class="price-sub">${fmtMoney(p.snack2)}</span></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="6" class="empty">В классе нет учеников</td></tr>'}</tbody>
+        </table>
+      </div>
+      ${students.length ? `<div style="height:12px"></div><button class="btn btn-accent" onclick="saveAccMeals('${cls}')">Сохранить отметки</button> <button class="btn btn-ghost" onclick="renderAccResult()">Отмена</button>` : ""}
+    </div>
+  `;
+}
+function toggleAccMealField(studentId, field){
+  state._mealEditDraft[studentId][field] = !state._mealEditDraft[studentId][field];
+  renderAccMealsEditorRepaint();
+}
+function renderAccMealsEditorRepaint(){
+  // lightweight repaint reusing current draft without refetching storage
+  const cls = state.accSelClass;
+  const container = document.getElementById("accResult");
+  const students = state.students[cls] || [];
+  const p = state.config.prices;
+  const rows = students.map(s => {
+    const st = state._mealEditDraft[s.id];
+    return `<tr>
+      <td>${escapeHtml(s.name)}</td>
+      <td><div class="chk-cell"><div class="chk ${st.b?'on':''}" onclick="toggleAccMealField('${s.id}','b')"></div></div></td>
+      <td><div class="chk-cell"><div class="chk disabled ${st.l?'on':''}"></div></div></td>
+      <td><div class="chk-cell"><div class="chk ${st.d?'on':''}" onclick="toggleAccMealField('${s.id}','d')"></div></div></td>
+      <td><div class="chk-cell"><div class="chk ${st.p1?'on':''}" onclick="toggleAccMealField('${s.id}','p1')"></div></div></td>
+      <td><div class="chk-cell"><div class="chk ${st.p2?'on':''}" onclick="toggleAccMealField('${s.id}','p2')"></div></div></td>
+    </tr>`;
+  }).join("");
+  container.innerHTML = `
+    <div class="panel">
+      <h3 style="margin-top:0;">${cls} — редактирование питания · ${fmtDateHuman(state.scheduleDate)}</h3>
+      <div class="table-scroll">
+        <table class="meal-table">
+          <thead><tr><th>Ученик</th><th>Завтрак<span class="price-sub">${fmtMoney(p.breakfast)}</span></th><th>Обед</th><th>Ужин<span class="price-sub">${fmtMoney(p.dinner)}</span></th><th>Полдник 1<span class="price-sub">${fmtMoney(p.snack1)}</span></th><th>Полдник 2<span class="price-sub">${fmtMoney(p.snack2)}</span></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="height:12px"></div><button class="btn btn-accent" onclick="saveAccMeals('${cls}')">Сохранить отметки</button> <button class="btn btn-ghost" onclick="renderAccResult()">Отмена</button>
+    </div>
+  `;
+}
+async function saveAccMeals(cls){
+  const attendance = await loadAttendance(state.scheduleDate);
+  const map = attendance[cls] || {};
+  const students = state.students[cls] || [];
+  students.forEach(s => {
+    const ex = map[s.id] || {};
+    const edited = state._mealEditDraft[s.id];
+    map[s.id] = { b: edited.b, l: !!ex.l, d: edited.d, p1: edited.p1, p2: edited.p2 };
+  });
+  await saveAttendanceForClass(state.scheduleDate, cls, map);
+  showToast("Отметки сохранены");
+  renderAccResult();
+}
+
+/* --- debt/payments subtab --- */
+function renderAccDebt(body){
+  const cls = state.accSelClass;
+  const pills = state.config.classes.map(c => `<div class="pill ${c===cls?'active':''}" onclick="selectAccClass('${c}')">${c}</div>`).join("");
+  body.innerHTML = `
+    <div class="panel">
+      <div class="field" style="max-width:220px;">
+        <label>Месяц</label>
+        <input type="month" id="accMonth" value="${state.accMonth}" onchange="changeAccMonth(this.value)">
+      </div>
+      <div class="pill-grid">${pills || '<div class="empty">Классы не настроены</div>'}</div>
+    </div>
+    <div id="accDebtResult"></div>
+  `;
+  if(cls) renderAccDebtResult();
+}
+function changeAccMonth(v){ state.accMonth = v; renderAccBody(); }
+async function renderAccDebtResult(){
+  const cls = state.accSelClass;
+  const month = state.accMonth;
+  const container = document.getElementById("accDebtResult");
+  if(!container) return;
+  container.innerHTML = `<div class="loading">Считаем начисления за месяц…</div>`;
+  const students = state.students[cls] || [];
+  const p = state.config.prices;
+  const keys = await listAttendanceKeys(month);
+  const chargedSum = {};
+  students.forEach(s => chargedSum[s.id] = 0);
+  for(const key of keys){
+    const data = await getAttendanceByKey(key);
+    if(data && data[cls]){
+      students.forEach(s => { chargedSum[s.id] += dailyCost(data[cls][s.id], p); });
+    }
+  }
+  const payments = await loadPayments();
+  const rows = students.map(s => {
+    const charged = chargedSum[s.id];
+    const paid = (payments[s.id] && payments[s.id][month]) || 0;
+    const debt = charged - paid;
+    return `<tr>
+      <td>${escapeHtml(s.name)}</td>
+      <td class="iin-cell">${escapeHtml(s.iin||"—")}</td>
+      <td class="num">${fmtMoney(charged)}</td>
+      <td class="num"><input class="pay-input" type="number" min="0" step="1" id="pay_${s.id}" value="${paid}"></td>
+      <td class="num" style="color:${debt>0?'var(--bad)':'var(--good)'};">${fmtMoney(debt)}</td>
+    </tr>`;
+  }).join("");
+  container.innerHTML = `
+    <div class="panel">
+      <h3 style="margin-top:0;">${cls} — ${monthHuman(month)}</h3>
+      <div class="legend-note" style="margin-top:-6px;margin-bottom:14px;">Начислено = сумма стоимости всех отмеченных приёмов пищи (завтрак, обед, ужин, полдники) за месяц.</div>
+      <div class="table-scroll">
+        <table class="month-table">
+          <thead><tr><th>Ученик</th><th>ИИН</th><th class="num">Начислено</th><th class="num">Оплачено</th><th class="num">Долг</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="5" class="empty">В классе нет учеников</td></tr>'}</tbody>
+        </table>
+      </div>
+      ${students.length ? `<div style="height:14px"></div><button class="btn btn-accent" onclick="saveMonthPayments('${cls}','${month}')">Сохранить оплату</button>` : ""}
+    </div>
+  `;
+}
+async function saveMonthPayments(cls, month){
+  const students = state.students[cls] || [];
+  const payments = await loadPayments();
+  students.forEach(s => {
+    const el = document.getElementById("pay_"+s.id);
+    if(!el) return;
+    const val = Math.max(0, Number(el.value) || 0);
+    if(!payments[s.id]) payments[s.id] = {};
+    payments[s.id][month] = val;
+  });
+  await savePayments(payments);
+  showToast("Оплата сохранена");
+  renderAccDebtResult();
+}
+
+/* ---------------- MANAGEMENT ---------------- */
+function openManagement(){
+  state.view = "management";
+  render_();
+}
+function renderMgmtGate(){
+  render(topbar("Управление", "Требуется пароль", true) + `
+    <div class="wrap">
+      <div class="gate panel">
+        <div class="lockicon">🔐</div>
+        <h3>Введите пароль</h3>
+        <div class="field"><input type="password" id="mgmtPass" placeholder="Пароль"></div>
+        <button class="btn btn-accent btn-block" onclick="checkMgmtPass()">Войти</button>
+        <div class="gate-err" id="mgmtErr"></div>
+      </div>
+    </div>
+  `);
+  document.getElementById("mgmtPass").addEventListener("keydown", e => { if(e.key==="Enter") checkMgmtPass(); });
+  document.getElementById("mgmtPass").focus();
+}
+function checkMgmtPass(){
+  const v = document.getElementById("mgmtPass").value;
+  if(v === state.config.password){ state.unlockedMgmt = true; render_(); }
+  else document.getElementById("mgmtErr").textContent = "Неверный пароль";
+}
+function renderMgmt(){
+  const tabs = [["students","👨‍🎓 Ученики"],["teachers","👨‍🏫 Учителя"],["classes","🏫 Классы"],["prices","💵 Цены"]];
+  const tabsHtml = tabs.map(([k,l]) => `<div class="tab ${state.mgmtTab===k?'active':''}" onclick="setMgmtTab('${k}')">${l}</div>`).join("");
+  const passFormHtml = state.showPassFormMgmt ? `
+    <div class="inline-form">
+      <div class="field"><label>Новый пароль</label><input type="password" id="newPassMgmt" placeholder="Новый пароль"></div>
+      <div class="field"><label>Повторите пароль</label><input type="password" id="newPassMgmt2" placeholder="Повторите новый пароль"></div>
+      <button class="btn btn-accent btn-sm" onclick="submitChangePassword('mgmt')">Сохранить пароль</button>
+      <div class="gate-err" id="passErrMgmt"></div>
+    </div>` : "";
+  render(topbar("Управление", "Ученики, учителя, классы, цены", true) + `
+    <div class="wrap wide">
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="tabs" style="margin-bottom:0;border-bottom:none;">${tabsHtml}</div>
+          <div class="pass-link" onclick="togglePassForm('mgmt')">🔑 Изменить пароль</div>
+        </div>
+        ${passFormHtml}
+      </div>
+      <div id="mgmtBody"></div>
+    </div>
+  `);
+  renderMgmtBody();
+}
+function setMgmtTab(t){ state.mgmtTab = t; renderMgmt(); }
+
+function renderMgmtBody(){
+  const body = document.getElementById("mgmtBody");
+  if(state.mgmtTab === "students") body.innerHTML = mgmtStudentsHtml();
+  else if(state.mgmtTab === "teachers") body.innerHTML = mgmtTeachersHtml();
+  else if(state.mgmtTab === "prices") body.innerHTML = mgmtPricesHtml();
+  else body.innerHTML = mgmtClassesHtml();
+}
+
+function mgmtPricesHtml(){
+  const p = state.config.prices;
+  return `
+    <div class="panel">
+      <h3 style="margin-top:0;">Цены на питание</h3>
+      <div class="row-inline">
+        <div class="field"><label>Завтрак, ₸</label><input type="number" min="0" id="priceBreakfast" value="${p.breakfast}"></div>
+        <div class="field"><label>Обед, ₸</label><input type="number" min="0" id="priceLunch" value="${p.lunch}"></div>
+        <div class="field"><label>Ужин, ₸</label><input type="number" min="0" id="priceDinner" value="${p.dinner}"></div>
+      </div>
+      <div class="row-inline">
+        <div class="field"><label>Полдник 1, ₸</label><input type="number" min="0" id="priceSnack1" value="${p.snack1}"></div>
+        <div class="field"><label>Полдник 2, ₸</label><input type="number" min="0" id="priceSnack2" value="${p.snack2}"></div>
+      </div>
+      <button class="btn btn-accent" onclick="savePrices()">Сохранить</button>
+    </div>
+  `;
+}
+async function savePrices(){
+  state.config.prices = {
+    breakfast: Math.max(0, Number(document.getElementById("priceBreakfast").value) || 0),
+    lunch: Math.max(0, Number(document.getElementById("priceLunch").value) || 0),
+    dinner: Math.max(0, Number(document.getElementById("priceDinner").value) || 0),
+    snack1: Math.max(0, Number(document.getElementById("priceSnack1").value) || 0),
+    snack2: Math.max(0, Number(document.getElementById("priceSnack2").value) || 0),
+  };
+  await saveConfig();
+  showToast("Цены сохранены");
+  renderMgmtBody();
+}
+
+function mgmtStudentsHtml(){
+  const classOptions = state.config.classes.map(c => `<option value="${c}">${c}</option>`).join("");
+  let listHtml = "";
+  state.config.classes.forEach(c => {
+    const students = state.students[c] || [];
+    listHtml += `<div class="panel"><h3 style="margin-top:0;font-size:15px;">${c} <span class="muted">(${students.length})</span></h3>`;
+    listHtml += students.length ? students.map(s => `
+      <div class="list-item">
+        <div>
+          <div class="li-name">${escapeHtml(s.name)}</div>
+          <div class="li-sub">ИИН: ${escapeHtml(s.iin || "не указан")}</div>
+        </div>
+        <div style="display:flex;gap:4px;">
+          <select onchange="moveStudent('${c}','${s.id}',this.value)" style="background:var(--panel-2);color:var(--text);border:1px solid var(--stroke);border-radius:7px;font-size:12.5px;padding:4px 6px;">
+            <option value="">Класс…</option>
+            ${state.config.classes.filter(x=>x!==c).map(x=>`<option value="${x}">${x}</option>`).join("")}
+          </select>
+          <button class="iconbtn" onclick="removeStudent('${c}','${s.id}')">✕</button>
+        </div>
+      </div>`).join("") : `<div class="empty">Пусто</div>`;
+    listHtml += `</div>`;
+  });
+
+  return `
+    <div class="panel">
+      <h3 style="margin-top:0;">Добавить ученика</h3>
+      <div class="row-inline">
+        <div class="field"><label>Имя и фамилия</label><input id="newStuName" placeholder="Например: Алиев Марат"></div>
+        <div class="field"><label>ИИН</label><input id="newStuIin" class="iin-input" placeholder="12 цифр" maxlength="12" inputmode="numeric"></div>
+        <div class="field" style="max-width:140px;"><label>Класс</label><select id="newStuClass">${classOptions}</select></div>
+        <button class="btn btn-accent" onclick="addStudent()">Добавить</button>
+      </div>
+      <div class="gate-err" id="stuErr"></div>
+    </div>
+    ${listHtml}
+  `;
+}
+async function addStudent(){
+  const name = document.getElementById("newStuName").value.trim();
+  const iin = document.getElementById("newStuIin").value.trim();
+  const cls = document.getElementById("newStuClass").value;
+  const errEl = document.getElementById("stuErr");
+  errEl.textContent = "";
+  if(!name){ errEl.textContent = "Введите имя и фамилию"; return; }
+  if(iin && !/^\d{12}$/.test(iin)){ errEl.textContent = "ИИН должен состоять из 12 цифр"; return; }
+  if(!state.students[cls]) state.students[cls] = [];
+  state.students[cls].push({ id: uid(), name, iin });
+  await saveStudents();
+  showToast("Ученик добавлен");
+  renderMgmtBody();
+}
+async function removeStudent(cls, id){
+  state.students[cls] = (state.students[cls]||[]).filter(s => s.id !== id);
+  await saveStudents();
+  renderMgmtBody();
+}
+async function moveStudent(cls, id, target){
+  if(!target) return;
+  const s = (state.students[cls]||[]).find(x=>x.id===id);
+  if(!s) return;
+  state.students[cls] = state.students[cls].filter(x=>x.id!==id);
+  if(!state.students[target]) state.students[target] = [];
+  state.students[target].push(s);
+  await saveStudents();
+  showToast("Класс изменён");
+  renderMgmtBody();
+}
+
+function mgmtTeachersHtml(){
+  const list = state.config.teachers || [];
+  const rows = list.length ? list.map(t => `
+    <div class="list-item">
+      <div>
+        <div class="li-name">${escapeHtml(t.name)}</div>
+        <div class="li-sub">ИИН: ${escapeHtml(t.iin || "не указан")}</div>
+      </div>
+      <button class="iconbtn" onclick="removeTeacher('${t.id}')">✕</button>
+    </div>`).join("") : `<div class="empty">Учителя пока не добавлены</div>`;
+  return `
+    <div class="panel">
+      <h3 style="margin-top:0;">Добавить учителя</h3>
+      <div class="row-inline">
+        <div class="field"><label>ФИО</label><input id="newTeachName" placeholder="Например: Иванов А.А."></div>
+        <div class="field"><label>ИИН</label><input id="newTeachIin" class="iin-input" placeholder="12 цифр" maxlength="12" inputmode="numeric"></div>
+        <button class="btn btn-accent" onclick="addTeacher()">Добавить</button>
+      </div>
+      <div class="gate-err" id="teachErr"></div>
+      <div class="legend-note">ИИН учителя используется как пароль входа дежурного на странице «Расписание».</div>
+    </div>
+    <div class="panel"><h3 style="margin-top:0;font-size:15px;">Список учителей</h3>${rows}</div>
+  `;
+}
+async function addTeacher(){
+  const name = document.getElementById("newTeachName").value.trim();
+  const iin = document.getElementById("newTeachIin").value.trim();
+  const errEl = document.getElementById("teachErr");
+  errEl.textContent = "";
+  if(!name){ errEl.textContent = "Введите ФИО"; return; }
+  if(!/^\d{12}$/.test(iin)){ errEl.textContent = "ИИН должен состоять из 12 цифр"; return; }
+  state.config.teachers.push({ id: uid(), name, iin });
+  await saveConfig();
+  showToast("Учитель добавлен");
+  renderMgmtBody();
+}
+async function removeTeacher(id){
+  state.config.teachers = state.config.teachers.filter(t => t.id !== id);
+  await saveConfig();
+  renderMgmtBody();
+}
+
+function mgmtClassesHtml(){
+  const rows = state.config.classes.map(c => `
+    <div class="list-item">
+      <div>
+        <div class="li-name">${c}</div>
+        <div class="li-sub">${(state.students[c]||[]).length} учеников</div>
+      </div>
+      <button class="iconbtn" onclick="removeClass('${c}')">✕</button>
+    </div>`).join("");
+  return `
+    <div class="panel">
+      <h3 style="margin-top:0;">Добавить класс</h3>
+      <div class="row-inline">
+        <div class="field"><label>Название класса</label><input id="newClassName" placeholder="Например: 8А"></div>
+        <button class="btn btn-accent" onclick="addClass()">Добавить</button>
+      </div>
+    </div>
+    <div class="panel"><h3 style="margin-top:0;font-size:15px;">Классы</h3>${rows || '<div class="empty">Нет классов</div>'}</div>
+  `;
+}
+async function addClass(){
+  const name = document.getElementById("newClassName").value.trim();
+  if(!name || state.config.classes.includes(name)) return;
+  state.config.classes.push(name);
+  state.students[name] = [];
+  await saveConfig();
+  await saveStudents();
+  showToast("Класс добавлен");
+  renderMgmtBody();
+}
+async function removeClass(name){
+  state.config.classes = state.config.classes.filter(c => c !== name);
+  delete state.students[name];
+  await saveConfig();
+  await saveStudents();
+  renderMgmtBody();
+}
+
+/* ---------------- DEBT LOOKUP ---------------- */
+function openDebt(){
+  state.view = "debt";
+  state.debtResult = null;
+  state.debtError = "";
+  render_();
+}
+function renderDebt(){
+  render(topbar("Долг", "Проверка задолженности по ИИН", true) + `
+    <div class="wrap">
+      <div class="panel">
+        <div class="row-inline">
+          <div class="field"><label>ИИН ученика</label><input id="debtIinInput" class="iin-input" placeholder="12 цифр" maxlength="12" inputmode="numeric"></div>
+          <button class="btn btn-accent" onclick="checkDebt()">Проверить</button>
+        </div>
+        <div class="gate-err" id="debtErr">${state.debtError || ""}</div>
+      </div>
+      <div id="debtResultBox"></div>
+    </div>
+  `);
+  document.getElementById("debtIinInput").addEventListener("keydown", e => { if(e.key==="Enter") checkDebt(); });
+  if(state.debtResult) renderDebtResultBox();
+}
+function findStudentByIin(iin){
+  for(const c of state.config.classes){
+    const found = (state.students[c]||[]).find(s => s.iin === iin);
+    if(found) return { student: found, cls: c };
+  }
+  return null;
+}
+async function checkDebt(){
+  const iin = document.getElementById("debtIinInput").value.trim();
+  const errEl = document.getElementById("debtErr");
+  errEl.textContent = "";
+  if(!/^\d{12}$/.test(iin)){ errEl.textContent = "Введите корректный ИИН (12 цифр)"; return; }
+  const found = findStudentByIin(iin);
+  if(!found){ errEl.textContent = "Ученик с таким ИИН не найден"; state.debtResult = null; document.getElementById("debtResultBox").innerHTML = ""; return; }
+  document.getElementById("debtResultBox").innerHTML = `<div class="loading">Считаем задолженность…</div>`;
+  const { student, cls } = found;
+  const p = state.config.prices;
+  const keys = await listAttendanceKeys("");
+  const monthCharge = {};
+  for(const key of keys){
+    const data = await getAttendanceByKey(key);
+    if(data && data[cls] && data[cls][student.id]){
+      const dateStr = key.replace("bil:attendance:", "");
+      const m = dateStr.slice(0,7);
+      monthCharge[m] = (monthCharge[m]||0) + dailyCost(data[cls][student.id], p);
+    }
+  }
+  const payments = await loadPayments();
+  const paidByMonth = payments[student.id] || {};
+  const months = Array.from(new Set([...Object.keys(monthCharge), ...Object.keys(paidByMonth)])).sort();
+  let totalCharged = 0, totalPaid = 0;
+  const rows = months.map(m => {
+    const charged = monthCharge[m] || 0;
+    const paid = paidByMonth[m] || 0;
+    totalCharged += charged; totalPaid += paid;
+    return { m, charged, paid, debt: charged - paid };
+  });
+  state.debtResult = { student, cls, rows, totalCharged, totalPaid, totalDebt: totalCharged - totalPaid };
+  renderDebtResultBox();
+}
+function renderDebtResultBox(){
+  const box = document.getElementById("debtResultBox");
+  if(!box || !state.debtResult) return;
+  const r = state.debtResult;
+  const noDebt = r.totalDebt <= 0;
+  const rowsHtml = r.rows.length ? r.rows.map(row => `
+    <tr>
+      <td>${cap(monthHuman(row.m))}</td>
+      <td class="num">${fmtMoney(row.charged)}</td>
+      <td class="num">${fmtMoney(row.paid)}</td>
+      <td class="num" style="color:${row.debt>0?'var(--bad)':'var(--good)'};">${fmtMoney(row.debt)}</td>
+    </tr>`).join("") : `<tr><td colspan="4" class="empty">Нет данных о посещениях</td></tr>`;
+  box.innerHTML = `
+    <div class="panel" style="border-color:${noDebt?'var(--good)':'var(--bad)'};background:${noDebt?'rgba(79,174,129,0.08)':'rgba(221,100,89,0.08)'};text-align:center;padding:20px;">
+      <div style="font-size:28px;margin-bottom:6px;">${noDebt ? '✅' : '⚠️'}</div>
+      <div style="font-size:16px;font-weight:600;color:${noDebt?'var(--good)':'var(--bad)'};">${noDebt ? 'Задолженности нет' : 'Есть задолженность'}</div>
+    </div>
+    <div class="panel">
+      <h3 style="margin-top:0;">${escapeHtml(r.student.name)} — ${r.cls}</h3>
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="kv">${fmtMoney(r.totalCharged)}</div><div class="kl">Должен всего</div></div>
+        <div class="kpi-card"><div class="kv">${fmtMoney(r.totalPaid)}</div><div class="kl">Оплатил</div></div>
+        <div class="kpi-card"><div class="kv ${noDebt?'zero':'pos'}">${fmtMoney(r.totalDebt)}</div><div class="kl">Осталось оплатить</div></div>
+      </div>
+      <div class="table-scroll">
+        <table class="month-table">
+          <thead><tr><th>Месяц</th><th class="num">Начислено</th><th class="num">Оплачено</th><th class="num">Долг</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+/* ---------------- ROUTER ---------------- */
+function render_(){
+  if(state.view === "home") return renderHome();
+  if(state.view === "schedule"){
+    if(state.openClass) return renderChecklist();
+    return renderSchedule();
+  }
+  if(state.view === "accounting"){
+    if(!state.unlockedAcc) return renderAccGate();
+    return renderAcc();
+  }
+  if(state.view === "management"){
+    if(!state.unlockedMgmt) return renderMgmtGate();
+    return renderMgmt();
+  }
+  if(state.view === "debt") return renderDebt();
+}
+
+boot();
+</script>
+</body>
+</html>
